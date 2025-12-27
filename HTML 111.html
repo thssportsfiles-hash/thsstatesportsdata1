@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        input { padding: 8px; margin-bottom: 10px; width: 250px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h2>100M Race Results - Junior Boys</h2>
+    <input type="text" id="searchInput" placeholder="Search by Name or Chest No..." onkeypress="handleEnter(event)">
+    <button onclick="searchTable()" style="padding: 8px; cursor: pointer;">Search</button>
+    
+    <table id="resultsTable">
+        <thead><tr id="tableHeader"></tr></thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+    <div id="msg" style="color: red; margin-top: 10px;"></div>
+
+    <script>
+        let allData = {}; // Store fetched data globally for searching
+
+        function loadData() {
+            var sheetId = "1XMdlaCAvizHXEa6hlg34_lzuW48JQzeFDGso15tnmcE";
+            var url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+
+            fetch(url)
+                .then(response => response.text())
+                .then(text => {
+                    // Parse Google Visualization API response
+                    // Use robust parsing to find the JSON object inside the JSONP wrapper
+                    var json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+                    var headers = json.table.cols.map(c => c ? (c.label || "") : "");
+                    var rows = json.table.rows.map(r => r.c.map(c => c ? (c.v !== null ? c.v : "") : ""));
+                    
+                    allData = { headers: headers, rows: rows };
+                    // Initial load: Do not show HTML table (prevent duplicate view), just store data.
+                })
+                .catch(err => {
+                    console.error("Error loading sheet:", err);
+                    document.getElementById('msg').innerText = ".";
+                });
+        }
+
+        function showData(headers, rows) {
+            var headerRow = document.getElementById('tableHeader');
+            var body = document.getElementById('tableBody');
+            var msg = document.getElementById('msg');
+            
+            headerRow.innerHTML = "";
+            body.innerHTML = "";
+            msg.innerText = "";
+
+            if (rows.length === 0) {
+                msg.innerText = "No results found.";
+                return;
+            }
+
+            headers.forEach(h => headerRow.innerHTML += `<th>${h}</th>`);
+            rows.forEach(row => {
+                var tr = body.insertRow();
+                row.forEach(cell => tr.insertCell().innerText = cell);
+            });
+        }
+
+        function searchTable() {
+            var input = document.getElementById("searchInput").value.toUpperCase();
+            var iframe = document.querySelector("iframe");
+
+            if (!allData.rows) {
+                document.getElementById('msg').innerText = "Data is still loading, please wait...";
+                return;
+            }
+            
+            // If search is empty: Show Iframe, Clear HTML Table
+            if (input.trim() === "") {
+                if (iframe) iframe.style.display = "block";
+                document.getElementById('tableHeader').innerHTML = "";
+                document.getElementById('tableBody').innerHTML = "";
+                document.getElementById('msg').innerText = "";
+                return;
+            }
+
+            // If search is active: Hide Iframe, Show Filtered Results
+            if (iframe) iframe.style.display = "none";
+            var filteredRows = allData.rows.filter(row => 
+                row.some(cell => String(cell).toUpperCase().includes(input))
+            );
+            showData(allData.headers, filteredRows);
+        }
+
+        function handleEnter(event) {
+            if (event.key === "Enter") {
+                searchTable();
+            }
+        }
+
+        window.onload = loadData;
+    </script>
+    <iframe src="https://docs.google.com/spreadsheets/d/1XMdlaCAvizHXEa6hlg34_lzuW48JQzeFDGso15tnmcE/htmlembed?widget=true&headers=false" width="100%" height="600" frameborder="0"></iframe>
+</body>
+</html>
